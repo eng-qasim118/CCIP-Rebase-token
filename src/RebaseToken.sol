@@ -2,23 +2,32 @@
 pragma solidity ^0.8.18;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract RebaseToken is ERC20 {
+contract RebaseToken is ERC20, Ownable, AccessControl {
     error RebaseToken__InterestRateCanOnlyIncrease(
         uint256 currentInterestRate,
         uint256 proposedInterestRate
     );
 
     uint256 private constant PRECISION_FACTOR = 1e18;
+    bytes32 private constant MINTANDBURN_ROLE = keccak256("Mint and Burn");
     uint256 private s_interestRate = 5e10;
     mapping(address => uint) private s_userInterestRate;
     mapping(address => uint) private s_lastUpdatedTimestap;
     event InterestRateSet(uint256 newInterestRate);
 
-    constructor() ERC20("Wealthiee", "WLEE") {}
+    constructor() ERC20("Wealthiee", "WLEE") Ownable(msg.sender) {}
 
-    function setInterestRate(uint256 _newInterestRate) external {
-        if (_newInterestRate < s_interestRate) {
+    function grantMintAndBurnRole(address _account) external onlyOwner {
+        _grantRole(MINTANDBURN_ROLE, _account);
+        // Optionally emit an event
+        // emit RoleGranted(MINT_AND_BURN_ROLE, _account, msg.sender);
+    }
+
+    function setInterestRate(uint256 _newInterestRate) external onlyOwner {
+        if (_newInterestRate > s_interestRate) {
             revert RebaseToken__InterestRateCanOnlyIncrease(
                 s_interestRate,
                 _newInterestRate
@@ -78,16 +87,16 @@ contract RebaseToken is ERC20 {
         return interestrate;
     }
 
-    function mint(address _to, uint _amount) external {
+    function mint(
+        address _to,
+        uint _amount
+    ) external onlyRole(MINTANDBURN_ROLE) {
         _mintAccuredInterestRate(_to);
         s_userInterestRate[_to] = s_interestRate;
         _mint(_to, _amount);
     }
 
     function burn(address _from, uint _amount) external {
-        if (_amount == type(uint).max) {
-            _amount = balanceOf(_from);
-        }
         _mintAccuredInterestRate(_from);
         _burn(_from, _amount);
     }
