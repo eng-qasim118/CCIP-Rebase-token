@@ -157,4 +157,27 @@ contract TestRebaseToken is Test {
         vm.expectPartialRevert(Ownable.OwnableUnauthorizedAccount.selector);
         rebasetoken.setInterestRate(_amount);
     }
+
+    function testGetPrincipalBalance(uint256 amount) public {
+        amount = bound(amount, 1e5, type(uint96).max);
+
+        // 1. Deposit
+        vm.deal(user, amount);
+        vm.prank(user);
+        vault.deposite{value: amount}();
+
+        // 2. Check principal balance
+        // Assuming function is named principleBalanceOf or similar
+        assertEq(rebasetoken.getPrincipalBalnceOf(user), amount);
+
+        // 3. Warp time
+        vm.warp(block.timestamp + 1 hours);
+
+        // 4. Check principal balance again - should be unchanged
+        assertEq(rebasetoken.getPrincipalBalnceOf(user), amount);
+    }
+
+    function testgetRebaseTokenAddress() public view {
+        assertEq(vault.getRebaseTOkenAddress(), address(rebasetoken));
+    }
 }
